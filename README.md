@@ -179,4 +179,3 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 <p align="center">Made with ❤️ by Dewan Sultan Al Amin</p>
 <p align="center">ZeroMiss v1.0 — Never miss a contest or task again</p>
-```
