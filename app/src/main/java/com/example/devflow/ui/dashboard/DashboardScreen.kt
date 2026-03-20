@@ -1,10 +1,13 @@
 package com.example.devflow.ui.dashboard
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -22,10 +25,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.devflow.data.model.Attendance
+import com.example.devflow.data.model.Student
 import com.example.devflow.data.model.Task
 import com.example.devflow.navigation.Screen
 import com.example.devflow.ui.components.GlassCard
 import com.example.devflow.ui.components.GradientStatCard
+import com.example.devflow.ui.components.AppTopBar
 import com.example.devflow.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -39,7 +45,9 @@ fun DashboardScreen(
     val todayTasks by viewModel.todayTasks.collectAsState()
     val tomorrowTasks by viewModel.tomorrowTasks.collectAsState()
     val missedTasks by viewModel.missedTasks.collectAsState()
-
+    val todayStudents by viewModel.todayStudents.collectAsState()
+    val todayAttendance by viewModel.todayAttendance.collectAsState()
+    val todayContests by viewModel.todayContests.collectAsState()
 
     val today = SimpleDateFormat("EEEE, MMM d", Locale.getDefault()).format(Date())
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -50,7 +58,7 @@ fun DashboardScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -83,7 +91,7 @@ fun DashboardScreen(
                     }
                 }
             )
-        },
+        }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -101,31 +109,136 @@ fun DashboardScreen(
                     GradientStatCard(
                         label = "Today",
                         value = todayTasks.size.toString(),
-                        gradientColors = listOf(
-                            Color(0xFF6650A4), Color(0xFF4FC3F7)
-                        ),
+                        gradientColors = listOf(Color(0xFF6650A4), Color(0xFF4FC3F7)),
                         modifier = Modifier.weight(1f)
                     )
                     GradientStatCard(
                         label = "Missed",
                         value = missedTasks.size.toString(),
-                        gradientColors = listOf(
-                            Color(0xFFE53935), Color(0xFFFF6B35)
-                        ),
+                        gradientColors = listOf(Color(0xFFE53935), Color(0xFFFF6B35)),
                         modifier = Modifier.weight(1f)
                     )
                     GradientStatCard(
                         label = "Done",
                         value = todayTasks.count { it.isCompleted }.toString(),
-                        gradientColors = listOf(
-                            Color(0xFF43A047), Color(0xFF00ACC1)
-                        ),
+                        gradientColors = listOf(Color(0xFF43A047), Color(0xFF00ACC1)),
                         modifier = Modifier.weight(1f)
                     )
                 }
             }
 
-            // Missed tasks
+            // ── Today's CF Contests ──────────────────────
+            if (todayContests.isNotEmpty()) {
+                item {
+                    Text("🏆 Today's Contests",
+                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                        color = LGPrimary)
+                }
+                items(todayContests) { contest ->
+                    val now = System.currentTimeMillis()
+                    val diffMillis = contest.startTimeMillis - now
+                    val countdown = when {
+                        diffMillis <= 0 -> "Started!"
+                        diffMillis < 3600000 -> "${diffMillis / 60000}m left"
+                        else -> "${diffMillis / 3600000}h ${(diffMillis % 3600000) / 60000}m left"
+                    }
+                    GlassCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        glowColor = if (diffMillis < 3600000) LGError else LGPrimary
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        brush = Brush.linearGradient(
+                                            colors = listOf(LGPrimary, LGPurple)
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("CF", color = Color.White,
+                                    fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(contest.name, fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1)
+                                Text(
+                                    SimpleDateFormat("hh:mm a", Locale.getDefault())
+                                        .format(Date(contest.startTimeMillis)),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(
+                                        if (diffMillis < 3600000)
+                                            LGError.copy(alpha = 0.15f)
+                                        else LGPrimary.copy(alpha = 0.15f)
+                                    )
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(countdown, fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (diffMillis < 3600000) LGError
+                                    else LGPrimary)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Today's Attendance ───────────────────────
+            if (todayStudents.isNotEmpty()) {
+                item {
+                    Text("🎓 Today's Attendance",
+                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                        color = LGSecondary)
+                }
+                item {
+                    GlassCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        glowColor = LGSecondary
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            todayStudents.forEach { student ->
+                                val attendance = todayAttendance[student.id]
+                                DashboardAttendanceRow(
+                                    student = student,
+                                    attendance = attendance,
+                                    onMarkPresent = { note ->
+                                        viewModel.markAttendance(student.id, "PRESENT", note)
+                                    },
+                                    onMarkAbsent = { note ->
+                                        viewModel.markAttendance(student.id, "ABSENT", note)
+                                    }
+                                )
+                                if (student != todayStudents.last()) {
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outline
+                                            .copy(alpha = 0.3f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Missed tasks ─────────────────────────────
             if (missedTasks.isNotEmpty()) {
                 item {
                     Text("⚠️ Missed", fontSize = 16.sp,
@@ -140,7 +253,7 @@ fun DashboardScreen(
                 }
             }
 
-            // Today
+            // ── Today's tasks ────────────────────────────
             item {
                 Text("📅 Today", fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -149,12 +262,10 @@ fun DashboardScreen(
             if (todayTasks.isEmpty()) {
                 item {
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            "No tasks for today. Tap + to add one!",
+                        Text("No tasks for today. Tap + to add one!",
                             modifier = Modifier.padding(16.dp),
                             fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
@@ -166,7 +277,7 @@ fun DashboardScreen(
                 }
             }
 
-            // Tomorrow
+            // ── Tomorrow ─────────────────────────────────
             item {
                 Text("🌅 Tomorrow", fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -175,12 +286,10 @@ fun DashboardScreen(
             if (tomorrowTasks.isEmpty()) {
                 item {
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            "No tasks for tomorrow.",
+                        Text("No tasks for tomorrow.",
                             modifier = Modifier.padding(16.dp),
                             fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
@@ -214,12 +323,8 @@ fun DashboardScreen(
                         .padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        "+ Add New Task",
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp
-                    )
+                    Text("+ Add New Task", color = Color.White,
+                        fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 }
                 Spacer(modifier = Modifier.height(80.dp))
             }
@@ -227,7 +332,192 @@ fun DashboardScreen(
     }
 }
 
+// ── Dashboard Attendance Row ──────────────────────────────
+@Composable
+fun DashboardAttendanceRow(
+    student: Student,
+    attendance: Attendance?,
+    onMarkPresent: (String) -> Unit,
+    onMarkAbsent: (String) -> Unit
+) {
+    val studentColor = try {
+        Color(android.graphics.Color.parseColor(student.colorLabel))
+    } catch (e: Exception) { LGPrimary }
 
+    val initials = student.name.split(" ")
+        .take(2).joinToString("") { it.first().uppercase() }
+
+    var showNoteDialog by remember { mutableStateOf(false) }
+    var pendingStatus by remember { mutableStateOf("") }
+
+    if (showNoteDialog) {
+        AttendanceNoteDialog(
+            studentName = student.name,
+            status = pendingStatus,
+            onDismiss = { showNoteDialog = false },
+            onConfirm = { note ->
+                if (pendingStatus == "PRESENT") onMarkPresent(note)
+                else onMarkAbsent(note)
+                showNoteDialog = false
+            }
+        )
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // Avatar
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(studentColor, studentColor.copy(alpha = 0.6f))
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(initials, color = Color.White,
+                fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        }
+
+        // Name + subject
+        Column(modifier = Modifier.weight(1f)) {
+            Text(student.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            if (student.subject.isNotBlank()) {
+                Text(student.subject, fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        // Attendance status or buttons
+        when (attendance?.status) {
+            "PRESENT" -> {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color(0xFF34C759).copy(alpha = 0.15f))
+                        .border(0.5.dp, Color(0xFF34C759), RoundedCornerShape(20.dp))
+                        .clickable {
+                            pendingStatus = "ABSENT"
+                            showNoteDialog = true
+                        }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text("✅ Present", fontSize = 12.sp,
+                        color = Color(0xFF34C759), fontWeight = FontWeight.SemiBold)
+                }
+            }
+            "ABSENT" -> {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color(0xFFFF3B30).copy(alpha = 0.15f))
+                        .border(0.5.dp, Color(0xFFFF3B30), RoundedCornerShape(20.dp))
+                        .clickable {
+                            pendingStatus = "PRESENT"
+                            showNoteDialog = true
+                        }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text("❌ Absent", fontSize = 12.sp,
+                        color = Color(0xFFFF3B30), fontWeight = FontWeight.SemiBold)
+                }
+            }
+            else -> {
+                // Not marked — show P/A buttons
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xFF34C759).copy(alpha = 0.15f))
+                            .border(0.5.dp, Color(0xFF34C759), RoundedCornerShape(20.dp))
+                            .clickable {
+                                pendingStatus = "PRESENT"
+                                showNoteDialog = true
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text("P", fontSize = 13.sp,
+                            color = Color(0xFF34C759),
+                            fontWeight = FontWeight.Bold)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xFFFF3B30).copy(alpha = 0.15f))
+                            .border(0.5.dp, Color(0xFFFF3B30), RoundedCornerShape(20.dp))
+                            .clickable {
+                                pendingStatus = "ABSENT"
+                                showNoteDialog = true
+                            }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text("A", fontSize = 13.sp,
+                            color = Color(0xFFFF3B30),
+                            fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Attendance Note Dialog ────────────────────────────────
+@Composable
+fun AttendanceNoteDialog(
+    studentName: String,
+    status: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var note by remember { mutableStateOf("") }
+    val statusColor = if (status == "PRESENT") Color(0xFF34C759) else Color(0xFFFF3B30)
+    val statusIcon = if (status == "PRESENT") "✅" else "❌"
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Mark $statusIcon $status", fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(studentName, fontSize = 14.sp,
+                    color = statusColor, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("Note (optional)") },
+                    placeholder = {
+                        Text(
+                            if (status == "ABSENT") "e.g. Sick, family emergency..."
+                            else "e.g. On time, late..."
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(note) },
+                colors = ButtonDefaults.buttonColors(containerColor = statusColor)
+            ) {
+                Text("Mark $status", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+// ── Keep existing TaskCard and other composables ──────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskCard(
@@ -310,7 +600,6 @@ fun TaskCard(
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Color accent bar
                 Box(
                     modifier = Modifier
                         .width(3.dp)

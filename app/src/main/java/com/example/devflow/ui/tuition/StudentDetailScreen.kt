@@ -1,5 +1,5 @@
 package com.example.devflow.ui.tuition
-
+import kotlinx.coroutines.launch
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -662,6 +662,7 @@ fun EnhancedShareReportDialog(
     var selectedOption by remember { mutableStateOf(0) }
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val fromDateState = rememberDatePickerState(
         initialSelectedDateMillis = Calendar.getInstance().apply {
@@ -743,36 +744,43 @@ fun EnhancedShareReportDialog(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Summary button
                     Button(
                         onClick = {
-                            val report = when (selectedOption) {
-                                0 -> viewModel.generateMonthlyReport(
-                                    student, viewMonth, viewYear)
-                                1 -> viewModel.generateRangeReport(
-                                    student,
-                                    fromDateState.selectedDateMillis ?: 0L,
-                                    toDateState.selectedDateMillis
-                                        ?: System.currentTimeMillis())
-                                else -> viewModel.generateAllTimeReport(student)
+                            scope.launch {
+                                val report = when (selectedOption) {
+                                    0 -> viewModel.generateMonthlyReport(
+                                        student, viewMonth, viewYear)
+                                    1 -> viewModel.generateRangeReportSuspend(
+                                        student,
+                                        fromDateState.selectedDateMillis ?: 0L,
+                                        toDateState.selectedDateMillis
+                                            ?: System.currentTimeMillis())
+                                    else -> viewModel.generateAllTimeReportSuspend(student)
+                                }
+                                onShare(report)
                             }
-                            onShare(report)
                         },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = LGPrimary)
                     ) { Text("Summary", fontSize = 12.sp) }
+
+                    // Detailed button
                     Button(
                         onClick = {
-                            val report = when (selectedOption) {
-                                0 -> viewModel.generateDetailedReport(
-                                    student, viewMonth, viewYear)
-                                1 -> viewModel.generateRangeReport(
-                                    student,
-                                    fromDateState.selectedDateMillis ?: 0L,
-                                    toDateState.selectedDateMillis
-                                        ?: System.currentTimeMillis())
-                                else -> viewModel.generateAllTimeReport(student)
+                            scope.launch {
+                                val report = when (selectedOption) {
+                                    0 -> viewModel.generateDetailedReport(
+                                        student, viewMonth, viewYear)
+                                    1 -> viewModel.generateRangeReportSuspend(
+                                        student,
+                                        fromDateState.selectedDateMillis ?: 0L,
+                                        toDateState.selectedDateMillis
+                                            ?: System.currentTimeMillis())
+                                    else -> viewModel.generateAllTimeReportSuspend(student)
+                                }
+                                onShare(report)
                             }
-                            onShare(report)
                         },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = LGPurple)

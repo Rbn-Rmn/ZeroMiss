@@ -17,4 +17,26 @@ class ContestRepository {
             emptyList()
         }
     }
+
+    // Alias used by DashboardViewModel
+    suspend fun fetchContests(): List<Contest> = getUpcomingContests()
+
+    // Get only today's contests
+    suspend fun getTodayContests(): List<Contest> {
+        return try {
+            val allContests = getUpcomingContests()
+            val now = System.currentTimeMillis()
+            val endOfDay = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 23)
+                set(java.util.Calendar.MINUTE, 59)
+                set(java.util.Calendar.SECOND, 59)
+            }.timeInMillis
+
+            allContests.filter { contest ->
+                contest.startTimeMillis in now..endOfDay
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
 }
